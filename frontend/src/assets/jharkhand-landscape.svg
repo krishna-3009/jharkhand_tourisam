@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title">
+  <title id="title">Illustrated green hills and forest at sunrise</title>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#dcefe8"/><stop offset="1" stop-color="#f5e5c7"/></linearGradient>
+    <linearGradient id="hill" x2="0" y2="1"><stop stop-color="#557f64"/><stop offset="1" stop-color="#27483d"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1200v800H0z"/>
+  <circle cx="870" cy="230" r="95" fill="#f2b765" opacity=".9"/>
+  <path fill="#a9c3a9" d="m0 460 180-145 170 130 210-190 220 190 180-140 240 160v335H0z"/>
+  <path fill="url(#hill)" d="m0 535 210-145 180 170 230-205 190 210 200-155 190 145v245H0z"/>
+  <path fill="#203f37" d="M0 615q190-115 385-25t385-8 430 28v190H0z"/>
+  <g fill="#315b46"><path d="m150 650 55-150 55 150zm470-10 65-180 65 180zm380 30 55-150 55 150z"/><path d="M195 625h20v90h-20zm480-10h20v100h-20zm375 30h20v80h-20z"/></g>
+  <path fill="#d5b983" opacity=".85" d="M0 735q260-70 470 5t420-4 310 7v57H0z"/>
+</svg>
