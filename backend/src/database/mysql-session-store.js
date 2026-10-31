@@ -1,6 +1,5 @@
 import session from 'express-session';
-
-const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
+import { env } from '../config/env.js';
 
 export class MySQLSessionStore extends session.Store {
   constructor(pool) {
@@ -31,7 +30,7 @@ export class MySQLSessionStore extends session.Store {
     const cookieExpiry = value.cookie?.expires ? new Date(value.cookie.expires).getTime() : null;
     const expires = cookieExpiry && Number.isFinite(cookieExpiry)
       ? cookieExpiry
-      : Date.now() + SESSION_LIFETIME_MS;
+      : Date.now() + env.sessionCookieMaxAgeMs;
     this.pool.execute(
       `INSERT INTO sessions (session_id, expires, data) VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE expires = VALUES(expires), data = VALUES(data)`,
@@ -43,7 +42,7 @@ export class MySQLSessionStore extends session.Store {
     const cookieExpiry = value.cookie?.expires ? new Date(value.cookie.expires).getTime() : null;
     const expires = cookieExpiry && Number.isFinite(cookieExpiry)
       ? cookieExpiry
-      : Date.now() + SESSION_LIFETIME_MS;
+      : Date.now() + env.sessionCookieMaxAgeMs;
     this.pool.execute('UPDATE sessions SET expires = ? WHERE session_id = ?', [expires, sessionId])
       .then(() => callback(null)).catch(callback);
   }

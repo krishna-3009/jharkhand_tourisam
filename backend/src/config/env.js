@@ -22,23 +22,47 @@ if (process.env.SESSION_SECRET.length < 32) {
   process.exit(1);
 }
 
-const sameSite = process.env.COOKIE_SAME_SITE || 'lax';
 const isProduction = process.env.NODE_ENV === 'production';
+const cookieSameSite = process.env.COOKIE_SAME_SITE || (isProduction ? 'none' : 'lax');
+const cookieSecure = process.env.COOKIE_SECURE === undefined
+  ? isProduction
+  : process.env.COOKIE_SECURE.toLowerCase() === 'true';
+const dbSslMode = process.env.DB_SSL_MODE || (
+  ['localhost', '127.0.0.1', '::1'].includes(process.env.DB_HOST) ? 'disabled' : 'required'
+);
 
-if (!['lax', 'strict', 'none'].includes(sameSite)) {
+if (!['lax', 'strict', 'none'].includes(cookieSameSite)) {
   throw new Error('COOKIE_SAME_SITE must be lax, strict, or none.');
 }
-if (sameSite === 'none' && !isProduction) {
+if (process.env.COOKIE_SECURE !== undefined && !['true', 'false'].includes(process.env.COOKIE_SECURE.toLowerCase())) {
+  throw new Error('COOKIE_SECURE must be true or false.');
+}
+if (cookieSameSite === 'none' && !isProduction) {
   throw new Error('SameSite=None cookies require HTTPS; use COOKIE_SAME_SITE=lax in development.');
+}
+if (cookieSameSite === 'none' && !cookieSecure) {
+  throw new Error('COOKIE_SECURE=true is required when COOKIE_SAME_SITE=none.');
+}
+const frontendOrigins = (process.env.FRONTEND_ORIGINS || (isProduction ? '' : 'http://localhost:5173,http://127.0.0.1:5173'))
+  .split(',').map((origin) => origin.trim()).filter(Boolean);
+if (isProduction && frontendOrigins.length === 0) {
+  throw new Error('Set FRONTEND_ORIGINS to the exact frontend origin in production.');
+}
+if (!['disabled', 'required', 'verify-ca'].includes(dbSslMode)) {
+  throw new Error('DB_SSL_MODE must be disabled, required, or verify-ca.');
+}
+if (dbSslMode === 'verify-ca' && !process.env.DB_SSL_CA_PATH && !process.env.DB_SSL_CA) {
+  throw new Error('Set DB_SSL_CA_PATH or DB_SSL_CA when DB_SSL_MODE=verify-ca.');
 }
 
 export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction,
-  port: Number(process.env.API_PORT || 3001),
-  frontendOrigins: (process.env.FRONTEND_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
-    .split(',').map((origin) => origin.trim()).filter(Boolean),
-  cookieSameSite: sameSite,
+  port: Number(process.env.PORT || process.env.API_PORT || 3001),
+  frontendOrigins,
+  cookieSameSite,
+  cookieSecure,
+  sessionCookieMaxAgeMs: 7 * 24 * 60 * 60 * 1000,
   sessionSecret: process.env.SESSION_SECRET,
   database: Object.freeze({
     host: process.env.DB_HOST,
@@ -46,5 +70,8 @@ export const env = Object.freeze({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     name: process.env.DB_NAME,
+    sslMode: dbSslMode,
+    sslCaPath: process.env.DB_SSL_CA_PATH || '',
+    sslCa: process.env.DB_SSL_CA || '',
   }),
 });

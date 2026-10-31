@@ -35,10 +35,12 @@ export function createApp(sessionStore) {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: env.isProduction,
     cookie: {
       httpOnly: true,
-      secure: env.isProduction,
+      secure: env.cookieSecure,
       sameSite: env.cookieSameSite,
+      maxAge: env.sessionCookieMaxAgeMs,
       path: '/',
     },
   }));

@@ -27,15 +27,22 @@ try {
     console.error('Create the database and required tables from the project root with:');
     console.error('mysql -u root -p < backend/sql/schema.sql');
     console.error('Then make sure DB_NAME in backend/.env matches the database name in backend/sql/schema.sql.');
+  } else if (error.code === 'HANDSHAKE_SSL_ERROR' || error.code === 'ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION') {
+    console.error(`TLS negotiation with MySQL at ${env.database.host}:${env.database.port} failed.`);
+    console.error(`Current DB_SSL_MODE: ${env.database.sslMode}.`);
+    console.error('For Aiven, verify the service host and port. For certificate verification, set DB_SSL_MODE=verify-ca and provide the CA certificate with DB_SSL_CA or DB_SSL_CA_PATH.');
+    if (error.message) console.error(`TLS detail: ${error.message}`);
+  } else if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
+    console.error(`Could not resolve MySQL host '${env.database.host}'. Copy DB_HOST exactly from Aiven's service connection information and check DNS/network access.`);
   } else {
-    console.error(`Could not verify the MySQL database (${error.code || 'connection error'}). Check MySQL is running and DB_* settings in backend/.env are correct.`);
+    console.error(`Could not verify the MySQL database (${error.code || 'connection error'}). Check MySQL is reachable and DB_* settings in backend/.env are correct.`);
   }
   await pool.end().catch(() => {});
   process.exit(1);
 }
 
 const app = createApp(sessionStore);
-const server = app.listen(env.port, () => {
+const server = app.listen(env.port, '0.0.0.0', () => {
   console.log(`Jharkhand Tourism API listening on port ${env.port}`);
 });
 

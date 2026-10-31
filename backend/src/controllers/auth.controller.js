@@ -22,7 +22,7 @@ const isValidEmail = (email) => typeof email === 'string'
 
 export async function getCurrentUser(req, res, next) {
   try {
-    if (!req.session.userId) return res.status(401).json({ error: 'You are not signed in.' });
+    if (!req.session.userId) return res.json({ user: null });
 
     const [rows] = await pool.execute(
       'SELECT id, name, email FROM users WHERE id = ?',
@@ -32,11 +32,11 @@ export async function getCurrentUser(req, res, next) {
       await destroySession(req);
       res.clearCookie('jh.sid', {
         httpOnly: true,
-        secure: env.isProduction,
+        secure: env.cookieSecure,
         sameSite: env.cookieSameSite,
         path: '/',
       });
-      return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+      return res.json({ user: null });
     }
     return res.json({ user: publicUser(rows[0]) });
   } catch (error) {
@@ -110,7 +110,7 @@ export async function logout(req, res, next) {
     if (req.session) await destroySession(req);
     res.clearCookie('jh.sid', {
       httpOnly: true,
-      secure: env.isProduction,
+      secure: env.cookieSecure,
       sameSite: env.cookieSameSite,
       path: '/',
     });
