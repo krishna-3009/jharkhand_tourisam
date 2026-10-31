@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
+import tripRoutes from './routes/trip.routes.js';
 import healthRoutes from './routes/health.routes.js';
 import { requireAllowedOrigin } from './middleware/request-origin.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -20,7 +21,7 @@ export function createApp(sessionStore) {
       return callback(new Error('This website is not allowed to use the authentication API.'));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
   }));
   app.use(express.json({ limit: '10kb' }));
@@ -47,6 +48,7 @@ export function createApp(sessionStore) {
 
   app.use('/api/health', healthRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/trips', tripRoutes);
   app.use((_req, res) => res.status(404).json({ error: 'Endpoint not found.' }));
   app.use(errorHandler);
   return app;

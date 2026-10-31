@@ -9,6 +9,7 @@ try {
   await Promise.all([
     pool.query('SELECT 1 FROM users LIMIT 0'),
     sessionStore.ready,
+    pool.query('SELECT 1 FROM saved_trips LIMIT 0'),
   ]);
 } catch (error) {
   if (error.code === 'ER_DBACCESS_DENIED_ERROR' || error.code === 'ER_TABLEACCESS_DENIED_ERROR') {

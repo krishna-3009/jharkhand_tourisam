@@ -852,17 +852,29 @@ function Header() {
   const { user: authUser, status: authStatus, setUser: setAuthUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [planCount, setPlanCount] = useState(readTripPlan().length);
+  const [planCount, setPlanCount] = useState(0);
 
   useEffect(() => {
-    const update = () => setPlanCount(readTripPlan().length);
-    window.addEventListener('trip-plan-updated', update);
-    window.addEventListener('storage', update);
-    return () => {
-      window.removeEventListener('trip-plan-updated', update);
-      window.removeEventListener('storage', update);
+    let active = true;
+    if (authStatus !== 'authenticated') {
+      setPlanCount(0);
+      return undefined;
+    }
+    const update = async () => {
+      try {
+        const { trips } = await apiRequest('/trips');
+        if (active) setPlanCount(trips.length);
+      } catch {
+        if (active) setPlanCount(0);
+      }
     };
-  }, []);
+    update();
+    window.addEventListener('trip-plan-updated', update);
+    return () => {
+      active = false;
+      window.removeEventListener('trip-plan-updated', update);
+    };
+  }, [authStatus, authUser?.id]);
 
   const handleLogout = async () => {
     try {
@@ -994,6 +1006,8 @@ function SiteFooter() {
 
 function DetailPage({ item, kind }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, status: authStatus } = useAuth();
 
   const isDestination = kind === 'destination';
   const isArticle = kind === 'article';
@@ -1013,14 +1027,46 @@ function DetailPage({ item, kind }) {
     : isArticle
       ? '/explore'
       : '/#attractions';
-  const planItem = { id: `${kind}:${item.name || item.title}`, name: item.name || item.title, type: kind, place: item.place || '', day: 1, path: isDestination ? `/destinations/${slug(item.name)}` : isAttraction ? `/attractions/${slug(item.name)}` : `/articles/${slug(item.title)}` };
-  const [inPlan, setInPlan] = useState(readTripPlan().some((entry) => entry.id === planItem.id));
+  const planItem = { tripKey: `${kind}:${item.name || item.title}`, name: item.name || item.title, type: kind, place: item.place || '', path: isDestination ? `/destinations/${slug(item.name)}` : `/attractions/${slug(item.name)}` };
+  const [inPlan, setInPlan] = useState(false);
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planError, setPlanError] = useState('');
 
-  const togglePlan = () => {
-    const current = readTripPlan();
-    const updated = inPlan ? current.filter((entry) => entry.id !== planItem.id) : [...current, planItem];
-    writeTripPlan(updated);
-    setInPlan(!inPlan);
+  useEffect(() => {
+    let active = true;
+    setInPlan(false);
+    if (authStatus !== 'authenticated') return () => { active = false; };
+    apiRequest('/trips').then(({ trips }) => {
+      if (active) setInPlan(trips.some((entry) => entry.tripKey === planItem.tripKey));
+    }).catch(() => {
+      if (active) setPlanError('Could not load your saved trips. Please try again.');
+    });
+    return () => { active = false; };
+  }, [authStatus, user?.id, planItem.tripKey]);
+
+  const togglePlan = async () => {
+    if (authStatus !== 'authenticated') {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    setPlanBusy(true);
+    setPlanError('');
+    try {
+      if (inPlan) {
+        const { trips } = await apiRequest('/trips');
+        const saved = trips.find((entry) => entry.tripKey === planItem.tripKey);
+        if (saved) await apiRequest(`/trips/${saved.id}`, { method: 'DELETE' });
+        setInPlan(false);
+      } else {
+        await apiRequest('/trips', { method: 'POST', body: JSON.stringify(planItem) });
+        setInPlan(true);
+      }
+      window.dispatchEvent(new Event('trip-plan-updated'));
+    } catch (error) {
+      setPlanError(error.message || 'Could not update your saved trip.');
+    } finally {
+      setPlanBusy(false);
+    }
   };
 
   return (
@@ -1058,7 +1104,7 @@ function DetailPage({ item, kind }) {
             <h1>{item.name || item.title}</h1>
 
             <p>{item.tagline || item.excerpt}</p>
-            {!isArticle && <button className="button button--orange" onClick={togglePlan}>{inPlan ? 'Remove from my trip' : 'Add to my trip'}</button>}
+            {!isArticle && <><button className="button button--orange" onClick={togglePlan} disabled={planBusy || authStatus === 'loading'}>{planBusy ? 'Saving…' : inPlan ? 'Remove from my trip' : 'Add to my trip'}</button>{planError && <p className="login-form__error" role="alert">{planError}</p>}{authStatus === 'anonymous' && <p className="info-note">Sign in to save this place to your trip.</p>}</>}
           </div>
         </div>
 
@@ -1708,41 +1754,66 @@ function slug(value) {
     .replace(/(^-|-$)/g, '');
 }
 
-const TRIP_PLAN_KEY = 'jharkhand-trip-plan-v1';
-
-function readTripPlan() {
-  try {
-    const value = JSON.parse(window.localStorage.getItem(TRIP_PLAN_KEY) || '[]');
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeTripPlan(items) {
-  try {
-    window.localStorage.setItem(TRIP_PLAN_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event('trip-plan-updated'));
-  } catch {
-    window.alert('Your browser could not save this trip. Check your storage settings and try again.');
-  }
-}
-
 function TripPlanPage() {
-  const [items, setItems] = useState(readTripPlan);
-  const refresh = () => setItems(readTripPlan());
-  useEffect(() => {
-    window.addEventListener('trip-plan-updated', refresh);
-    return () => window.removeEventListener('trip-plan-updated', refresh);
-  }, []);
+  const { user, status: authStatus } = useAuth();
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const move = (index, direction) => {
+  const refresh = async () => {
+    if (authStatus !== 'authenticated') return;
+    setLoading(true);
+    try {
+      const { trips } = await apiRequest('/trips');
+      setItems(trips);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.message || 'Could not load your trips.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authStatus === 'authenticated') refresh();
+    else {
+      setItems([]);
+      setLoading(authStatus === 'loading');
+    }
+  }, [authStatus, user?.id]);
+
+  useEffect(() => {
+    const update = () => refresh();
+    window.addEventListener('trip-plan-updated', update);
+    return () => window.removeEventListener('trip-plan-updated', update);
+  }, [authStatus, user?.id]);
+
+  const updateTrip = async (item, updates) => {
+    try {
+      await apiRequest(`/trips/${item.id}`, { method: 'PUT', body: JSON.stringify(updates) });
+      await refresh();
+      window.dispatchEvent(new Event('trip-plan-updated'));
+    } catch (requestError) {
+      setError(requestError.message || 'Could not update your trip.');
+    }
+  };
+
+  const move = async (index, direction) => {
     const target = index + direction;
     if (target < 0 || target >= items.length) return;
     const updated = [...items];
     [updated[index], updated[target]] = [updated[target], updated[index]];
-    writeTripPlan(updated);
     setItems(updated);
+    try {
+      await Promise.all(updated.map((item, position) => apiRequest(`/trips/${item.id}`, {
+        method: 'PUT', body: JSON.stringify({ position }),
+      })));
+      window.dispatchEvent(new Event('trip-plan-updated'));
+    } catch (requestError) {
+      setError(requestError.message || 'Could not reorder your trip.');
+      refresh();
+    }
   };
   const share = async () => {
     const message = `My Jharkhand trip: ${items.map((item, index) => `${index + 1}. Day ${item.day || 1}: ${item.name}${item.place ? ` (${item.place})` : ''}`).join('; ')}`;
@@ -1755,8 +1826,11 @@ function TripPlanPage() {
     }
   };
 
-  return <main id="main-content" className="tourism-app"><Header /><section className="article-page trip-page"><p className="eyebrow">Plan your visit</p><h1>My Jharkhand trip</h1><p className="page-intro">Add places from their detail pages, then arrange your stops. This plan is saved only on this device.</p>
-    {items.length ? <><ol className="trip-list">{items.map((item, index) => <li key={item.id}><span className="trip-list__number">{index + 1}</span><div className="trip-list__info"><strong>{item.name}</strong><span>{item.place || item.type}</span></div><label className="trip-day">Day <select aria-label={`Assign ${item.name} to a day`} value={item.day || 1} onChange={(event) => { const updated = items.map((entry) => entry.id === item.id ? { ...entry, day: Number(event.target.value) } : entry); writeTripPlan(updated); setItems(updated); }}>{[1, 2, 3, 4, 5, 6, 7].map((day) => <option key={day} value={day}>{day}</option>)}</select></label><Link className="trip-list__link" to={item.path}>Details</Link><button onClick={() => move(index, -1)} aria-label={`Move ${item.name} up`} disabled={index === 0}>↑</button><button onClick={() => move(index, 1)} aria-label={`Move ${item.name} down`} disabled={index === items.length - 1}>↓</button><button onClick={() => { const updated = items.filter((entry) => entry.id !== item.id); writeTripPlan(updated); setItems(updated); }}>Remove</button></li>)}</ol><div className="trip-actions"><button className="button button--orange" onClick={share}>Share trip</button><button className="button button--dark" onClick={() => { writeTripPlan([]); setItems([]); }}>Clear trip</button></div></> : <div className="empty-state"><p>Your trip list is empty.</p><Link className="button button--orange" to="/" state={{ scrollTo: 'destinations' }}>Explore destinations</Link></div>}
+  return <main id="main-content" className="tourism-app"><Header /><section className="article-page trip-page"><p className="eyebrow">Plan your visit</p><h1>My Jharkhand trip</h1><p className="page-intro">Your saved places are private to your account and stay available when you sign in again.</p>
+    {authStatus === 'loading' || loading ? <p role="status">Loading your saved trips…</p>
+      : authStatus !== 'authenticated' ? <div className="empty-state"><p>Sign in to view and manage your personal trip list.</p><button className="button button--orange" onClick={() => navigate('/login', { state: { from: '/trip-plan' } })}>Log in or create account</button></div>
+        : error ? <div className="auth-status-error" role="alert"><p>{error}</p><button className="button button--dark" onClick={refresh}>Try again</button></div>
+          : items.length ? <><ol className="trip-list">{items.map((item, index) => <li key={item.id}><span className="trip-list__number">{index + 1}</span><div className="trip-list__info"><strong>{item.name}</strong><span>{item.place || item.type}</span></div><label className="trip-day">Day <select aria-label={`Assign ${item.name} to a day`} value={item.day || 1} onChange={(event) => updateTrip(item, { day: Number(event.target.value) })}>{[1, 2, 3, 4, 5, 6, 7].map((day) => <option key={day} value={day}>{day}</option>)}</select></label><Link className="trip-list__link" to={item.path}>Details</Link><button onClick={() => move(index, -1)} aria-label={`Move ${item.name} up`} disabled={index === 0}>↑</button><button onClick={() => move(index, 1)} aria-label={`Move ${item.name} down`} disabled={index === items.length - 1}>↓</button><button onClick={async () => { try { await apiRequest(`/trips/${item.id}`, { method: 'DELETE' }); await refresh(); window.dispatchEvent(new Event('trip-plan-updated')); } catch (requestError) { setError(requestError.message || 'Could not remove this place.'); } }}>Remove</button></li>)}</ol><div className="trip-actions"><button className="button button--orange" onClick={share}>Share trip</button><button className="button button--dark" onClick={async () => { try { await apiRequest('/trips', { method: 'DELETE' }); setItems([]); window.dispatchEvent(new Event('trip-plan-updated')); } catch (requestError) { setError(requestError.message || 'Could not clear your trip.'); } }}>Clear trip</button></div></> : <div className="empty-state"><p>Your trip list is empty.</p><Link className="button button--orange" to="/" state={{ scrollTo: 'destinations' }}>Explore destinations</Link></div>}
   </section><SiteFooter /></main>;
 }
 

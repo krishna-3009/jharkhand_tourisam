@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiRequest } from './lib/api.js';
 import { useAuth } from './auth/AuthProvider.jsx';
 import fallbackImage from './assets/jharkhand-landscape.svg';
 
 export default function LoginPage({ accountOnly = false }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, status, setUser, refreshUser } = useAuth();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -36,7 +37,8 @@ export default function LoginPage({ accountOnly = false }) {
         : { email: form.email.trim(), password: form.password, remember };
       const result = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
       setUser(result.user);
-      navigate('/');
+      const returnTo = location.state?.from;
+      navigate(typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/');
     } catch (requestError) {
       setError(requestError.message || 'Could not connect to the account server.');
     } finally {

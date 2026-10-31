@@ -1,6 +1,6 @@
 # Jharkhand Tourism
 
-React frontend with an Express API, MySQL account storage, and Express sessions persisted in MySQL. The frontend and backend have separate npm projects; install and run them from their own folders.
+React frontend with an Express API, MySQL account and per-user saved-trip storage, and Express sessions persisted in MySQL. The frontend and backend have separate npm projects; install and run them from their own folders.
 
 ## Structure
 
@@ -52,13 +52,13 @@ cd backend && npm start
 
 Set `DB_PASSWORD` and generate `SESSION_SECRET` with `openssl rand -base64 48`. Local MySQL defaults to `DB_SSL_MODE=disabled`. For Aiven locally, set `DB_SSL_MODE=verify-ca` and provide its CA certificate using `DB_SSL_CA_PATH` or `DB_SSL_CA`.
 
-If the tables are missing, create them as a MySQL administrator from the project root:
+Apply the idempotent schema as a MySQL administrator from the project root, including when updating an existing database:
 
 ```sh
 mysql -u root -p < backend/sql/schema.sql
 ```
 
-The schema script is idempotent and does not remove existing users. No database schema change is required for the session fixes.
+The schema script creates the `saved_trips` table with a foreign key to `users`; it does not remove existing users or tables. Existing account and session tables are retained.
 
 ## Authentication behavior
 
@@ -68,6 +68,14 @@ The schema script is idempotent and does not remove existing users. No database 
 - React uses one shared authentication provider so the header and account page update together. A temporary `/me` network/database failure preserves an already-loaded account state.
 - Session cookies are HTTP-only, secure in production, and persist for seven days. “Keep me signed in” extends a login to 30 days.
 - Logout deletes the server-side session, clears its cookie, updates shared frontend state, and returns to the home page.
+
+## My trips
+
+- Saved destinations and attractions are stored in MySQL `saved_trips`, linked to the user ID from the authenticated Express session.
+- `GET`, `POST`, `PUT`, and `DELETE /api/trips` routes require a valid session. Each query filters by `req.session.userId`; clients cannot choose an owner ID.
+- The trip planner loads after authentication is restored, so a refresh or a later login shows that account's saved trips.
+- Existing browser-only trip lists may have been shared between users on that device. They are left untouched in browser storage but are not imported into an account because their original owner cannot be determined safely. Save the intended places again while signed in.
+- After deploying this update to an existing database, apply `backend/sql/schema.sql` before starting the new API version.
 
 ## Deploy the API to Render
 
