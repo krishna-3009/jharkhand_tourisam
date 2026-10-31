@@ -1,4 +1,6 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const isVercelHost = typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app');
+const useSameOriginApi = isVercelHost || import.meta.env.VITE_USE_SAME_ORIGIN_API === 'true';
+const apiBaseUrl = (useSameOriginApi ? '' : import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 let currentUserRequest;
 
 export async function apiRequest(path, options = {}) {

@@ -14,7 +14,7 @@ services:
       - key: COOKIE_SECURE
         value: true
       - key: FRONTEND_ORIGINS
-        value: https://krishna-3009.github.io
+        value: https://krishna-3009.github.io,https://jharkhand-tourisam.vercel.app
       - key: DB_NAME
         value: defaultdb
       - key: DB_USER

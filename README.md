@@ -19,6 +19,7 @@ jharkhand-main/
 │   ├── .env.example
 │   └── package.json
 ├── frontend/
+│   ├── api/                    # Vercel same-origin API proxy
 │   ├── src/
 │   ├── public/
 │   ├── .env.example
@@ -86,7 +87,7 @@ The included `render.yaml` describes a Node web service rooted at `backend/`. In
 | `NODE_ENV` | `production` |
 | `COOKIE_SAME_SITE` | `none` |
 | `COOKIE_SECURE` | `true` |
-| `FRONTEND_ORIGINS` | `https://krishna-3009.github.io` (origin only; no `/jharkhand` path) |
+| `FRONTEND_ORIGINS` | Comma-separated exact origins: `https://krishna-3009.github.io,https://jharkhand-tourisam.vercel.app` |
 | `DB_HOST` | Aiven service host |
 | `DB_PORT` | Aiven service port |
 | `DB_NAME` | `defaultdb` |
@@ -110,11 +111,11 @@ Build and publish the frontend from `frontend/`:
 npm run deploy
 ```
 
-The `VITE_API_BASE_URL` value must be present at build time. If the frontend uses another host or custom domain, update Render's `FRONTEND_ORIGINS` to that exact origin. Do not add a path or trailing slash.
+For GitHub Pages, `VITE_API_BASE_URL` must be present at build time and point to Render. For Vercel, set the project Root Directory to `frontend` so it deploys `frontend/api/[...path].js`, then use that same-origin proxy: leave `VITE_API_BASE_URL` unset, set Vercel's server-side `API_ORIGIN` to the Render API origin (it defaults to the service name in `render.yaml`), and include the Vercel production origin in Render's `FRONTEND_ORIGINS`. The `*.vercel.app` hostname automatically uses the proxy; set `VITE_USE_SAME_ORIGIN_API=true` for a custom Vercel domain. Redeploy both services after changing environment variables.
 
 ## Cookie and browser notes
 
-The GitHub Pages frontend and a Render API are cross-site. Production therefore needs `SameSite=None; Secure`, credentialed frontend requests, exact-origin CORS, and HTTPS. The app configures these settings and trusts Render's reverse proxy. Some browser privacy settings block third-party cookies even with these settings. For the most reliable sign-in across browsers, serve the frontend and API on the same site (for example, `www.example.com` and `api.example.com`) or proxy `/api` through the frontend's site.
+GitHub Pages and a Render API are cross-site, so browsers may block their session cookies. The Vercel API function forwards `/api` through the frontend's own origin to avoid third-party cookie restrictions. The Render API still uses `SameSite=None; Secure`, credentialed requests, exact-origin CORS, and trusted proxy settings. Render environment variables must be updated when the frontend origin changes.
 
 Locally, use `NODE_ENV=development`, `COOKIE_SAME_SITE=lax`, `COOKIE_SECURE=false`, and the localhost origins from `backend/.env.example`. Keep `backend/.env`, `.env.local`, and deployment secrets out of Git.
 
