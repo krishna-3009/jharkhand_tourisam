@@ -96,7 +96,7 @@ The included `render.yaml` describes a Node web service rooted at `backend/`. In
 | `DB_SSL_CA` | CA certificate PEM downloaded from Aiven |
 | `SESSION_SECRET` | Fresh random value from `openssl rand -base64 48` |
 
-Render supplies `PORT`; the server binds to it and to `0.0.0.0`. Do not set a changing session secret at each deploy: all instances and restarts need the same `SESSION_SECRET` or signed cookies become invalid. `DB_SSL_CA` is a public CA certificate, not a private key. The API verifies it in `verify-ca` mode.
+Render supplies `PORT`; the server binds to it and to `0.0.0.0`. It also identifies Render through `RENDER_SERVICE_ID` and trusts the single Render proxy hop for client IP rate limiting and secure session cookies. Keep `NODE_ENV=production` set in the Render service. Do not set a changing session secret at each deploy: all instances and restarts need the same `SESSION_SECRET` or signed cookies become invalid. `DB_SSL_CA` is a public CA certificate, not a private key. The API verifies it in `verify-ca` mode.
 
 After the first deployment, copy the API's `https://…onrender.com` origin into `frontend/.env.production.local`:
 

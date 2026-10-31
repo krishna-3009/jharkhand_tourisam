@@ -22,7 +22,9 @@ if (process.env.SESSION_SECRET.length < 32) {
   process.exit(1);
 }
 
-const isProduction = process.env.NODE_ENV === 'production';
+// Render terminates HTTPS at its proxy and injects RENDER_SERVICE_ID. Treat it
+// as production even if NODE_ENV was omitted in the service dashboard.
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER_SERVICE_ID);
 const cookieSameSite = process.env.COOKIE_SAME_SITE || (isProduction ? 'none' : 'lax');
 const cookieSecure = process.env.COOKIE_SECURE === undefined
   ? isProduction
