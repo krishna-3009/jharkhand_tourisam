@@ -1,6 +1,7 @@
 import { useState, useEffect, useDeferredValue, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import LoginPage from './LoginPage.jsx';
+import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { apiRequest } from './lib/api.js';
 import fallbackImage from './assets/jharkhand-landscape.svg';
 import './App.css';
@@ -848,7 +849,7 @@ const localProducts = [
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [authUser, setAuthUser] = useState(null);
+  const { user: authUser, status: authStatus, setUser: setAuthUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [planCount, setPlanCount] = useState(readTripPlan().length);
@@ -863,29 +864,21 @@ function Header() {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const refreshUser = () => apiRequest('/auth/me')
-      .then(({ user }) => { if (active) setAuthUser(user); })
-      .catch(() => { if (active) setAuthUser(null); });
-    const handleAuthChange = () => { refreshUser(); };
-    refreshUser();
-    window.addEventListener('jh-auth-change', handleAuthChange);
-    return () => {
-      active = false;
-      window.removeEventListener('jh-auth-change', handleAuthChange);
-    };
-  }, []);
-
   const handleLogout = async () => {
     try {
       await apiRequest('/auth/logout', { method: 'POST', body: '{}' });
       setAuthUser(null);
-      window.dispatchEvent(new Event('jh-auth-change'));
+      navigate('/');
     } catch {
       // Keep the account link visible if the API could not end the session.
     }
   };
+
+  const authActions = authStatus === 'authenticated'
+    ? <><Link className="button button--orange" to="/account">{authUser.name}</Link><button className="button button--dark" type="button" onClick={handleLogout}>Log out</button></>
+    : authStatus === 'anonymous'
+      ? <><Link className="button button--orange" to="/login">Create account</Link><Link className="button button--dark" to="/login">Log in</Link></>
+      : <><button className="button button--dark" type="button" disabled>{authStatus === 'loading' ? 'Checking account…' : 'Account unavailable'}</button>{authStatus === 'error' && <button className="button button--orange" type="button" onClick={refreshUser}>Retry</button>}</>;
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -930,14 +923,18 @@ function Header() {
           </a>
 
           <div className="nav-actions-mobile">
-            {authUser ? <><Link className="button button--orange" to="/login" onClick={closeMenu}>{authUser.name}</Link><button className="button button--dark" type="button" onClick={() => { closeMenu(); handleLogout(); }}>Log out</button></> : <><Link className="button button--orange" to="/login" onClick={closeMenu}>Create account</Link><Link className="button button--dark" to="/login" onClick={closeMenu}>Log in</Link></>}
+            {authStatus === 'authenticated'
+              ? <><Link className="button button--orange" to="/account" onClick={closeMenu}>{authUser.name}</Link><button className="button button--dark" type="button" onClick={() => { closeMenu(); handleLogout(); }}>Log out</button></>
+              : authStatus === 'anonymous'
+                ? <><Link className="button button--orange" to="/login" onClick={closeMenu}>Create account</Link><Link className="button button--dark" to="/login" onClick={closeMenu}>Log in</Link></>
+                : <><button className="button button--dark" type="button" disabled>{authStatus === 'loading' ? 'Checking account…' : 'Account unavailable'}</button>{authStatus === 'error' && <button className="button button--orange" type="button" onClick={refreshUser}>Retry</button>}</>}
           </div>
         </nav>
       </div>
 
       <div className="header-actions">
         <Link className="button button--dark" to="/trip-plan">My trip ({planCount})</Link>
-        {authUser ? <><Link className="button button--orange" to="/login">{authUser.name}</Link><button className="button button--dark" type="button" onClick={handleLogout}>Log out</button></> : <><Link className="button button--orange" to="/login">Create account</Link><Link className="button button--dark" to="/login">Log in</Link></>}
+        {authActions}
       </div>
 
       <button
@@ -1770,60 +1767,44 @@ function TripPlanPage() {
 export default function JharkhandTourism() {
   return (
     <HashRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Home />} />
 
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/trip-plan" element={<TripPlanPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/account" element={<LoginPage accountOnly />} />
+          <Route path="/trip-plan" element={<TripPlanPage />} />
 
-        <Route
-          path="/explore"
-          element={<ExplorePage />}
-        />
-
-        {destinations.map((destination) => (
           <Route
-            key={destination.name}
-            path={`/destinations/${slug(
-              destination.name
-            )}`}
-            element={
-              <DetailPage
-                item={destination}
-                kind="destination"
-              />
-            }
+            path="/explore"
+            element={<ExplorePage />}
           />
-        ))}
 
-        {attractions.map((attraction) => (
-          <Route
-            key={attraction.name}
-            path={`/attractions/${slug(
-              attraction.name
-            )}`}
-            element={
-              <DetailPage
-                item={attraction}
-                kind="attraction"
-              />
-            }
-          />
-        ))}
+          {destinations.map((destination) => (
+            <Route
+              key={destination.name}
+              path={`/destinations/${slug(destination.name)}`}
+              element={<DetailPage item={destination} kind="destination" />}
+            />
+          ))}
 
-        {articles.map((article) => (
-          <Route
-            key={article.title}
-            path={`/articles/${slug(article.title)}`}
-            element={
-              <DetailPage
-                item={article}
-                kind="article"
-              />
-            }
-          />
-        ))}
-      </Routes>
+          {attractions.map((attraction) => (
+            <Route
+              key={attraction.name}
+              path={`/attractions/${slug(attraction.name)}`}
+              element={<DetailPage item={attraction} kind="attraction" />}
+            />
+          ))}
+
+          {articles.map((article) => (
+            <Route
+              key={article.title}
+              path={`/articles/${slug(article.title)}`}
+              element={<DetailPage item={article} kind="article" />}
+            />
+          ))}
+        </Routes>
+      </AuthProvider>
     </HashRouter>
   );
 }

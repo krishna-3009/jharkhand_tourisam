@@ -1,4 +1,5 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+let currentUserRequest;
 
 export async function apiRequest(path, options = {}) {
   const response = await fetch(`${apiBaseUrl}/api${path}`, {
@@ -15,4 +16,13 @@ export async function apiRequest(path, options = {}) {
     throw new Error(body.error || 'The request could not be completed.');
   }
   return body;
+}
+
+export function getCurrentUser() {
+  if (!currentUserRequest) {
+    currentUserRequest = apiRequest('/auth/me').finally(() => {
+      currentUserRequest = undefined;
+    });
+  }
+  return currentUserRequest;
 }

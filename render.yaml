@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: jharkhand-tourism-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: COOKIE_SECURE
+        value: true
+      - key: FRONTEND_ORIGINS
+        value: https://krishna-3009.github.io
+      - key: DB_NAME
+        value: defaultdb
+      - key: DB_USER
+        value: avnadmin
+      - key: DB_SSL_MODE
+        value: verify-ca
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_CA
+        sync: false
+      - key: SESSION_SECRET
+        sync: false

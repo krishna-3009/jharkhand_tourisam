@@ -205,6 +205,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .login-form__row a:hover { text-decoration: underline; }
 .login-form__note, .login-page__account-email { display: block; margin-top: 1rem; color: var(--muted); font-size: .8rem; line-height: 1.6; }
 .login-page__account-email { margin: -1rem 0 1rem; font-size: .95rem; }
+.login-page__account-note { margin: 0 0 1.25rem; color: var(--muted); line-height: 1.7; }
+.login-page__account-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.auth-status-error { padding: 1rem; border: 1px solid #f3d3ad; border-radius: .8rem; background: #fff8ef; }
+.auth-status-error p { margin: 0 0 .8rem; color: #70461d; font-size: .88rem; line-height: 1.6; }
 .login-form__error, .review-form__error { padding: .6rem .75rem; border: 1px solid #fecaca; border-radius: .5rem; background: #fef2f2; color: #dc2626; font-size: .8rem; }
 .login-form__submit { width: 100%; min-height: 3.2rem; margin-top: .5rem; padding: .8rem 1rem; border-radius: .75rem; background: var(--forest); font-size: .95rem; }
 .login-form__submit:disabled { transform: none; opacity: .7; cursor: not-allowed; }

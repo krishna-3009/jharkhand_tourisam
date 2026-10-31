@@ -1,28 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiRequest } from './lib/api.js';
+import { useAuth } from './auth/AuthProvider.jsx';
 import fallbackImage from './assets/jharkhand-landscape.svg';
 
-export default function LoginPage() {
+export default function LoginPage({ accountOnly = false }) {
   const navigate = useNavigate();
+  const { user, status, setUser, refreshUser } = useAuth();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [remember, setRemember] = useState(false);
-  const [user, setUser] = useState(null);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const isSignup = mode === 'signup';
-
-  useEffect(() => {
-    let active = true;
-    apiRequest('/auth/me')
-      .then(({ user: currentUser }) => { if (active) setUser(currentUser); })
-      .catch(() => {})
-      .finally(() => { if (active) setCheckingSession(false); });
-    return () => { active = false; };
-  }, []);
 
   const handleChange = (field) => (event) => {
     setForm((previous) => ({ ...previous, [field]: event.target.value }));
@@ -45,7 +36,6 @@ export default function LoginPage() {
         : { email: form.email.trim(), password: form.password, remember };
       const result = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
       setUser(result.user);
-      window.dispatchEvent(new Event('jh-auth-change'));
       navigate('/');
     } catch (requestError) {
       setError(requestError.message || 'Could not connect to the account server.');
@@ -60,7 +50,7 @@ export default function LoginPage() {
     try {
       await apiRequest('/auth/logout', { method: 'POST', body: '{}' });
       setUser(null);
-      window.dispatchEvent(new Event('jh-auth-change'));
+      navigate('/');
     } catch (requestError) {
       setError(requestError.message || 'Could not sign out.');
     } finally {
@@ -90,20 +80,48 @@ export default function LoginPage() {
         <Link to="/" className="login-page__back">← Back to home</Link>
 
         <div className="login-page__form-wrap">
-          {checkingSession ? (
-            <p role="status">Checking your sign-in…</p>
+          {status === 'loading' ? (
+            <p role="status">Restoring your sign-in…</p>
           ) : user ? (
             <>
               <p className="eyebrow">Account</p>
               <h2>Welcome, {user.name}</h2>
               <p className="login-page__account-email">{user.email}</p>
+              <p className="login-page__account-note">You’re signed in. Your account is ready while you plan your next journey.</p>
               {error && <p className="login-form__error" role="alert">{error}</p>}
-              <button className="button button--orange login-form__submit" onClick={handleLogout} disabled={submitting}>
-                {submitting ? 'Please wait…' : 'Log out'}
-              </button>
+              <div className="login-page__account-actions">
+                {accountOnly && <Link className="button button--dark" to="/">Explore Jharkhand</Link>}
+                <button className="button button--orange" onClick={handleLogout} disabled={submitting}>
+                  {submitting ? 'Please wait…' : 'Log out'}
+                </button>
+              </div>
+            </>
+          ) : accountOnly ? (
+            <>
+              <p className="eyebrow">My account</p>
+              {status === 'error' ? (
+                <div className="auth-status-error" role="status">
+                  <h2>We couldn’t verify your session</h2>
+                  <p>Your account has not been changed. Retry the session check or continue to sign in.</p>
+                  <button className="button button--dark" type="button" onClick={refreshUser}>Try again</button>
+                  <Link className="button button--orange" to="/login">Go to sign in</Link>
+                </div>
+              ) : (
+                <>
+                  <h2>Sign in to view your account</h2>
+                  <p className="login-page__account-note">Log in or create an account to see your profile.</p>
+                  <Link className="button button--orange login-form__submit" to="/login">Log in or create account</Link>
+                </>
+              )}
             </>
           ) : (
             <>
+              {status === 'error' && (
+                <div className="auth-status-error" role="status">
+                  <p>We couldn’t verify your current session. You can still try to sign in.</p>
+                  <button className="button button--dark" type="button" onClick={refreshUser}>Retry session check</button>
+                </div>
+              )}
               <p className="eyebrow">{isSignup ? 'Create account' : 'Welcome back'}</p>
               <h2>{isSignup ? 'Sign up to get started' : 'Log in to your account'}</h2>
 

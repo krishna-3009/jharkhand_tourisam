@@ -1,153 +1,130 @@
 # Jharkhand Tourism
 
-A tourism website with a React frontend, an Express API, and MySQL-backed account storage. The repository uses npm workspaces: install dependencies once at the root, then run each service from the root scripts.
+React frontend with an Express API, MySQL account storage, and Express sessions persisted in MySQL. The frontend and backend have separate npm projects; install and run them from their own folders.
 
-## Project structure
+## Structure
 
 ```text
 jharkhand-main/
 ├── backend/
 │   ├── src/
-│   │   ├── app.js                 # Express middleware and route registration
-│   │   ├── server.js              # Startup checks, listener, shutdown handling
-│   │   ├── config/env.js          # Environment validation and configuration
-│   │   ├── controllers/           # Request handlers
+│   │   ├── app.js
+│   │   ├── server.js
+│   │   ├── config/env.js
+│   │   ├── controllers/auth.controller.js
 │   │   ├── database/              # MySQL pool and session store
-│   │   ├── middleware/            # Origin checks, rate limits, error handling
-│   │   └── routes/                # Auth and health routes
-│   ├── sql/schema.sql             # MySQL database and table definitions
-│   ├── .env.example               # Safe configuration template
+│   │   ├── middleware/
+│   │   └── routes/
+│   ├── sql/schema.sql
+│   ├── .env.example
 │   └── package.json
 ├── frontend/
-│   ├── src/                       # React application
-│   ├── public/                    # Static assets
-│   ├── legacy-html-css/           # Preserved original standalone HTML/CSS version
-│   ├── vite.config.js             # Local /api proxy
+│   ├── src/
+│   ├── public/
+│   ├── .env.example
 │   └── package.json
-├── .gitignore
-├── package.json                  # Workspace commands
-└── package-lock.json
+├── render.yaml
+└── .gitignore
 ```
 
-`backend/server.js` remains as a small compatibility launcher. New backend code belongs under `backend/src/`.
+## Local development
 
-## Requirements
-
-- Node.js compatible with the Vite version in `frontend/package.json`.
-- MySQL Server running locally for account registration and login.
-
-## Local setup
-
-### 1. Install dependencies
-
-From the project root:
+Install each application's dependencies:
 
 ```sh
-npm install
+cd backend && npm ci
+cp .env.example .env
 ```
 
-### 2. Create the MySQL schema
+In a second terminal:
 
-From the project root, run the schema as a MySQL administrator:
+```sh
+cd frontend && npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+The frontend example leaves `VITE_API_BASE_URL` blank so Vite proxies `/api` to `http://localhost:3001`. Run the API in another terminal:
+
+```sh
+cd backend && npm start
+```
+
+Set `DB_PASSWORD` and generate `SESSION_SECRET` with `openssl rand -base64 48`. Local MySQL defaults to `DB_SSL_MODE=disabled`. For Aiven locally, set `DB_SSL_MODE=verify-ca` and provide its CA certificate using `DB_SSL_CA_PATH` or `DB_SSL_CA`.
+
+If the tables are missing, create them as a MySQL administrator from the project root:
 
 ```sh
 mysql -u root -p < backend/sql/schema.sql
 ```
 
-Create an application user with access to the database selected by `DB_NAME` in `backend/.env.example`. For the supplied example configuration:
+The schema script is idempotent and does not remove existing users. No database schema change is required for the session fixes.
 
-```sql
-CREATE USER IF NOT EXISTS 'jharakhand_database'@'localhost' IDENTIFIED BY 'choose-a-strong-password';
-GRANT SELECT, INSERT, UPDATE, DELETE ON `myproject`.* TO 'jharakhand_database'@'localhost';
-FLUSH PRIVILEGES;
-```
+## Authentication behavior
 
-If you change `DB_NAME` or `DB_USER`, update the database/schema and grant command to match. The API user needs read/write access to both `users` and `sessions` tables.
+- Passwords are hashed with bcrypt; passwords and hashes are never returned to the frontend.
+- Login and registration regenerate the session, set its user ID, and wait for MySQL session storage before responding.
+- `/api/auth/me` returns `{ "user": null }` for a confirmed signed-out session and the user record for a valid session.
+- React uses one shared authentication provider so the header and account page update together. A temporary `/me` network/database failure preserves an already-loaded account state.
+- Session cookies are HTTP-only, secure in production, and persist for seven days. “Keep me signed in” extends a login to 30 days.
+- Logout deletes the server-side session, clears its cookie, updates shared frontend state, and returns to the home page.
 
-### 3. Configure the backend
+## Deploy the API to Render
 
-Copy the example file and edit the local copy:
+The included `render.yaml` describes a Node web service rooted at `backend/`. In Render, create a Blueprint from the repository and supply the variables marked as unsynchronized:
 
-```sh
-cp backend/.env.example backend/.env
-```
-
-Set `DB_PASSWORD` to the password you chose for the MySQL application user. Generate a private session secret with:
-
-```sh
-openssl rand -base64 48
-```
-
-Put that value in `SESSION_SECRET`. Keep `backend/.env` private; Git ignores it.
-
-### 4. Start both services
-
-Open two terminals in the project root.
-
-Terminal 1 — API:
-
-```sh
-npm run server:dev
-```
-
-Terminal 2 — website:
-
-```sh
-npm run dev
-```
-
-Open the frontend URL printed by Vite, usually `http://localhost:5173`. The Vite development server proxies `/api` requests to the API on port 3001.
-
-You can also launch the API while your terminal is in `backend/`:
-
-```sh
-node server.js
-```
-
-## Available commands
-
-| Command | Purpose |
+| Variable | Value |
 | --- | --- |
-| `npm run dev` | Start the Vite frontend |
-| `npm run server:dev` | Start the API with file watching |
-| `npm run server` | Start the API for production |
-| `npm run build` | Build the frontend |
-| `npm run preview` | Preview the frontend production build |
-| `npm run deploy` | Publish the static frontend using the configured GitHub Pages script |
+| `NODE_ENV` | `production` |
+| `COOKIE_SAME_SITE` | `none` |
+| `COOKIE_SECURE` | `true` |
+| `FRONTEND_ORIGINS` | `https://krishna-3009.github.io` (origin only; no `/jharkhand` path) |
+| `DB_HOST` | Aiven service host |
+| `DB_PORT` | Aiven service port |
+| `DB_NAME` | `defaultdb` |
+| `DB_USER` | `avnadmin` or a restricted application user |
+| `DB_PASSWORD` | Aiven password |
+| `DB_SSL_MODE` | `verify-ca` |
+| `DB_SSL_CA` | CA certificate PEM downloaded from Aiven |
+| `SESSION_SECRET` | Fresh random value from `openssl rand -base64 48` |
+
+Render supplies `PORT`; the server binds to it and to `0.0.0.0`. Do not set a changing session secret at each deploy: all instances and restarts need the same `SESSION_SECRET` or signed cookies become invalid. `DB_SSL_CA` is a public CA certificate, not a private key. The API verifies it in `verify-ca` mode.
+
+After the first deployment, copy the API's `https://…onrender.com` origin into `frontend/.env.production.local`:
+
+```sh
+VITE_API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
+```
+
+Build and publish the frontend from `frontend/`:
+
+```sh
+npm run deploy
+```
+
+The `VITE_API_BASE_URL` value must be present at build time. If the frontend uses another host or custom domain, update Render's `FRONTEND_ORIGINS` to that exact origin. Do not add a path or trailing slash.
+
+## Cookie and browser notes
+
+The GitHub Pages frontend and a Render API are cross-site. Production therefore needs `SameSite=None; Secure`, credentialed frontend requests, exact-origin CORS, and HTTPS. The app configures these settings and trusts Render's reverse proxy. Some browser privacy settings block third-party cookies even with these settings. For the most reliable sign-in across browsers, serve the frontend and API on the same site (for example, `www.example.com` and `api.example.com`) or proxy `/api` through the frontend's site.
+
+Locally, use `NODE_ENV=development`, `COOKIE_SAME_SITE=lax`, `COOKIE_SECURE=false`, and the localhost origins from `backend/.env.example`. Keep `backend/.env`, `.env.local`, and deployment secrets out of Git.
+
+## Verification and troubleshooting
+
+- `GET /api/health` checks API-to-database connectivity and is also Render's health-check endpoint.
+- `GET /api/auth/me` should return an object with `user` set to `null` or the current account.
+- In browser DevTools, inspect the login/register response for `Set-Cookie`, then check that later `/api/auth/me` requests include the `jh.sid` cookie. `HttpOnly` means frontend JavaScript cannot read it.
+- If the browser shows CORS errors, compare the request's `Origin` with `FRONTEND_ORIGINS` exactly.
+- If no cookie is stored, verify HTTPS, `COOKIE_SAME_SITE=none`, `secure=true`, and the `Set-Cookie` response. If the cookie is sent but `user` is null, check that the session row with that session ID exists in Aiven and that the `SESSION_SECRET` is unchanged.
+- Ensure the GitHub Pages build points to the deployed Render API, not `localhost`.
 
 ## API routes
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/health` | Check API and database availability |
-| `GET` | `/api/auth/me` | Return the current signed-in user |
-| `POST` | `/api/auth/register` | Create an account and sign in |
-| `POST` | `/api/auth/login` | Sign in with email and password |
-| `POST` | `/api/auth/logout` | End the server-side session |
-
-Passwords are hashed with bcrypt before they reach the database. The browser receives an HTTP-only session cookie; it never stores the password. Account rows and session rows are stored in MySQL.
-
-## Troubleshooting MySQL permissions
-
-If the API reports that a MySQL user cannot access its database, run a grant as a MySQL administrator. Use the exact `DB_NAME` and `DB_USER` values from `backend/.env`:
-
-```sql
-GRANT SELECT, INSERT, UPDATE, DELETE ON `myproject`.* TO 'jharakhand_database'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-If it reports missing tables, run the schema from the project root:
-
-```sh
-mysql -u root -p < backend/sql/schema.sql
-```
-
-## Production deployment
-
-GitHub Pages can serve the static frontend but cannot run this Express API or MySQL. Deploy the API to a Node.js host and MySQL to a database host. Configure the backend environment variables on the API host, set `FRONTEND_ORIGINS` to the exact website origin, and build the frontend with `VITE_API_BASE_URL` set to the API URL.
-
-Use HTTPS for both services. `COOKIE_SAME_SITE=none` requires HTTPS and cross-site cookies may be blocked by browsers; a same-site API/frontend deployment or reverse proxy is more reliable. Before public signup, configure email verification, password reset, account deletion, privacy/terms pages, and monitoring.
-
-## Git and secrets
-
-The root `.gitignore` excludes dependency folders, build output, local environment files, logs, uploads, and editor/OS files. Commit `.env.example`; do not commit `.env`.
+| `GET` | `/api/health` | API and database health check |
+| `GET` | `/api/auth/me` | Current session user, or `null` |
+| `POST` | `/api/auth/register` | Create account and session |
+| `POST` | `/api/auth/login` | Authenticate and create session |
+| `POST` | `/api/auth/logout` | Destroy session and clear cookie |
