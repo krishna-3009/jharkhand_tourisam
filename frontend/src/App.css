@@ -92,7 +92,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .destination-card img { transition: transform .3s ease; }
 .destination-card:hover img { transform: scale(1.06); }
 .destination-card__shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(9, 30, 20, .74), transparent 70%); }
-.destination-card span { position: absolute; bottom: 1rem; left: 1rem; padding: .45rem .85rem; border: 1px solid rgba(255, 255, 255, .6); border-radius: 999px; background: rgba(255, 255, 255, .95); color: var(--forest); font-size: .84rem; font-weight: 600; }
+.destination-card > span { position: absolute; bottom: 1rem; left: 1rem; padding: .45rem .85rem; border: 1px solid rgba(255, 255, 255, .6); border-radius: 999px; background: rgba(255, 255, 255, .95); color: var(--forest); font-size: .84rem; font-weight: 600; }
 .attraction-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.15rem; }
 .attraction-card, .local-product-card, .article-card { overflow: hidden; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--surface); box-shadow: 0 7px 24px rgba(23, 61, 45, .045); transition: transform .2s ease, box-shadow .2s ease; }
 .attraction-card:hover, .local-product-card:hover, .article-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
@@ -331,7 +331,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .content-section h2, .local-products__heading h2 { margin-bottom: 1rem; font-size: 1.45rem; }
   .destination-grid, .attraction-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
   .destination-card { height: 10.5rem; border-radius: .9rem; }
-  .destination-card span { bottom: .65rem; left: .65rem; padding: .35rem .65rem; font-size: .72rem; }
+  .destination-card > span { bottom: .65rem; left: .65rem; padding: .35rem .65rem; font-size: .72rem; }
   .attraction-card { border-radius: .9rem; }
   .attraction-card__image { height: 8.75rem; }
   .attraction-card__body { padding: .8rem; }

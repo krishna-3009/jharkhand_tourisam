@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiRequest } from './lib/api.js';
 import { useAuth } from './auth/AuthProvider.jsx';
+import { usePageMeta } from './hooks/usePageMeta.js';
 import fallbackImage from './assets/jharkhand-landscape.svg';
 
 export default function LoginPage({ accountOnly = false }) {
@@ -11,10 +12,12 @@ export default function LoginPage({ accountOnly = false }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const isSignup = mode === 'signup';
+  usePageMeta(`${accountOnly ? 'My account' : isSignup ? 'Create account' : 'Log in'} | Jharkhand Tourism`, 'Sign in or create an account to plan and save your Jharkhand journey.');
 
   const handleChange = (field) => (event) => {
     setForm((previous) => ({ ...previous, [field]: event.target.value }));
@@ -142,7 +145,10 @@ export default function LoginPage({ accountOnly = false }) {
 
                 <label className="login-form__field">
                   <span>Password</span>
-                  <input type="password" autoComplete={isSignup ? 'new-password' : 'current-password'} value={form.password} onChange={handleChange('password')} placeholder="At least 8 characters" required minLength={8} maxLength={72} />
+                  <span className="password-field">
+                    <input type={showPassword ? 'text' : 'password'} autoComplete={isSignup ? 'new-password' : 'current-password'} value={form.password} onChange={handleChange('password')} placeholder="At least 8 characters" required minLength={8} maxLength={72} />
+                    <button type="button" className="password-field__toggle" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? 'Hide' : 'Show'}</button>
+                  </span>
                 </label>
 
                 {!isSignup && (

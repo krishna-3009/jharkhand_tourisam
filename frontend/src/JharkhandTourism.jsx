@@ -4,7 +4,11 @@ import LoginPage from './LoginPage.jsx';
 import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { apiRequest } from './lib/api.js';
 import fallbackImage from './assets/jharkhand-landscape.svg';
+import SectionHeading from './components/SectionHeading.jsx';
+import DestinationCard from './components/DestinationCard.jsx';
+import { usePageMeta } from './hooks/usePageMeta.js';
 import './App.css';
+import './styles/product-theme.css';
 
 /* =========================================================
    DATA
@@ -13,8 +17,7 @@ import './App.css';
 const destinations = [
   {
     name: 'Ranchi',
-    image:
-      'https://tse1.mm.bing.net/th/id/OIP.56lWcBtzk-tHLRqdvkIiVQHaEK?pid=Api',
+    image: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1400&q=85',
     tagline: 'Waterfalls, hills and a lively capital city.',
     details:
       'Ranchi is the natural gateway to Jharkhand. Spend a morning at Dassam or Hundru Falls, take in the views at Tagore Hill, and enjoy the city’s parks, markets and relaxed café culture.',
@@ -911,16 +914,19 @@ function Header() {
       <a className="skip-link" href="#main-content">Skip to content</a>
       <div className="brand-area">
         <Link to="/" onClick={closeMenu}>
-          <strong>Jharkhand</strong>
+          <span className="brand-symbol" aria-hidden="true">J</span>
+          <span className="brand-copy"><strong>Jharkhand</strong><small>Travel guide</small></span>
         </Link>
 
-        <nav className={menuOpen ? 'is-open' : ''}>
+        <nav id="primary-navigation" aria-label="Main navigation" className={menuOpen ? 'is-open' : ''}>
           <Link to="/explore" onClick={closeMenu}>
-            Explore
+            Stories
           </Link>
           <Link to="/trip-plan" onClick={closeMenu}>
             My trip ({planCount})
           </Link>
+
+          <a href="/#destination-search" onClick={goToSection('destination-search')}>Find places</a>
 
           <a href="/#attractions" onClick={goToSection('attractions')}>
             Attractions
@@ -952,6 +958,7 @@ function Header() {
       <button
         className={`menu-toggle${menuOpen ? ' is-active' : ''}`}
         aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        aria-controls="primary-navigation"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen(!menuOpen)}
       >
@@ -1012,6 +1019,8 @@ function DetailPage({ item, kind }) {
   const isDestination = kind === 'destination';
   const isArticle = kind === 'article';
   const isAttraction = kind === 'attraction';
+  const pageName = item.name || item.title;
+  usePageMeta(`${pageName} | Jharkhand Tourism`, item.tagline || item.excerpt || (item.details || item.body || '').slice(0, 155));
 
   const hasMap =
     isAttraction &&
@@ -1403,6 +1412,7 @@ function ReviewsSection({ attractionName }) {
 ========================================================= */
 
 function ExplorePage() {
+  usePageMeta('Travel stories | Jharkhand Tourism', 'Read travel ideas, cultural context and practical inspiration for exploring Jharkhand.');
   return (
     <main id="main-content" className="tourism-app">
       <Header />
@@ -1491,15 +1501,18 @@ function Home() {
           <div className="hero__overlay" />
 
           <div className="hero__content">
-            <h1>Discover the beauty of Jharkhand</h1>
-
-            <p>
-              Experience breathtaking landscapes and culture.
-            </p>
+            <p className="hero__eyebrow">India’s eastern highlands</p>
+            <h1>Discover the <em>untamed beauty</em> of Jharkhand</h1>
+            <p>Follow forest roads to hidden waterfalls, hilltop views and living traditions.</p>
+            <div className="hero__actions">
+              <Link className="button button--light" to="/" state={{ scrollTo: 'destinations' }}>Explore destinations <span aria-hidden="true">↗</span></Link>
+              <Link className="hero__text-link" to="/" state={{ scrollTo: 'attractions' }}>Find your next experience <span aria-hidden="true">↓</span></Link>
+            </div>
           </div>
+          <span className="hero__caption">A slower way to see the extraordinary</span>
         </div>
 
-        <div className="search-panel" role="search">
+        <div id="destination-search" className="search-panel" role="search">
           <div className="search-panel__topline"><div><span className="search-panel__eyebrow">Find your next stop</span><p>Search waterfalls, temples and more</p></div>{hasFilters && <button className="search-reset" type="button" onClick={() => { setQuery(''); setInterest('All interests'); setDistrict('All districts'); }}>Clear filters</button>}</div>
           <div className="search-controls">
             <label className="search-field search-field--query"><span className="search-field__icon" aria-hidden="true">⌕</span><span className="sr-only">Search places</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try “waterfalls” or “Ranchi”" autoComplete="off" /></label>
@@ -1513,26 +1526,13 @@ function Home() {
       {/* DESTINATIONS */}
       <section
         id="destinations"
-        className="content-section"
+        className="content-section content-section--destinations"
       >
-        <h2>Top destinations</h2>
+        <SectionHeading eyebrow="Start somewhere memorable" title="Places that stay with you" description="From the energy of Ranchi to quiet hill country, find a corner of Jharkhand that feels like yours." action={<Link className="section-heading__link" to="/" state={{ scrollTo: 'attractions' }}>See all places <span aria-hidden="true">↗</span></Link>} />
 
         <div className="destination-grid">
-          {destinations.map((destination) => (
-            <Link
-              className="destination-card"
-              to={`/destinations/${slug(destination.name)}`}
-              key={destination.name}
-            >
-              <img loading="lazy" decoding="async" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallbackImage; }}
-                src={destination.image}
-                alt={destination.name}
-              />
-
-              <div className="destination-card__shade" />
-
-              <span>{destination.name}</span>
-            </Link>
+          {destinations.map((destination, index) => (
+            <DestinationCard destination={destination} featured={index === 0} key={destination.name} />
           ))}
         </div>
       </section>
@@ -1542,7 +1542,7 @@ function Home() {
         id="attractions"
         className="content-section"
       >
-        <h2>{hasFilters ? 'Matching places' : 'Places to explore'}</h2>
+        <SectionHeading eyebrow="Find your kind of journey" title={hasFilters ? 'Places that match' : 'A little more wild, a little more wonderful'} description="Waterfall trails, quiet lakes and cultural landmarks—explore the places that make this region distinct." />
         {hasFilters && <p className="search-results-count" aria-live="polite">{filteredAttractions.length} {filteredAttractions.length === 1 ? 'place' : 'places'} found</p>}
 
         <div className="attraction-grid">
@@ -1611,6 +1611,29 @@ function Home() {
             )}
           </div>
         )}
+      </section>
+
+      <section className="experience-section">
+        <div className="experience-section__inner">
+          <SectionHeading eyebrow="Choose your pace" title="A journey for every kind of curious" description="Explore Jharkhand through its landscapes and places, at your own pace." />
+          <div className="experience-grid">
+            {[
+              { label: 'Waterfall country', category: 'Waterfall' },
+              { label: 'Forest & hills', category: 'Nature' },
+              { label: 'Sacred journeys', category: 'Religious' },
+              { label: 'Wildlife escapes', category: 'Wildlife' },
+            ].map((experience) => {
+              const place = attractions.find((entry) => entry.category.toLowerCase().includes(experience.category.toLowerCase()));
+              if (!place) return null;
+              return <Link className="experience-card" key={experience.category} to={`/attractions/${slug(place.name)}`}>
+                <img loading="lazy" decoding="async" src={place.image} alt={place.name} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallbackImage; }} />
+                <span className="experience-card__shade" />
+                <span className="experience-card__label">{experience.label}</span>
+                <span className="experience-card__place">{place.name} <span aria-hidden="true">↗</span></span>
+              </Link>;
+            })}
+          </div>
+        </div>
       </section>
 
       {/* STATE GUIDE */}
@@ -1688,7 +1711,7 @@ function Home() {
         <div className="local-products__heading">
           <p className="eyebrow">Bring a piece of Jharkhand home</p>
 
-          <h2>Local crafts & products</h2>
+          <h2>Made here, carried with you</h2>
 
           <p>
             Handmade by tribal artisans across the state, each piece
@@ -1755,6 +1778,7 @@ function slug(value) {
 }
 
 function TripPlanPage() {
+  usePageMeta('My trip | Jharkhand Tourism', 'View and manage the places saved to your personal Jharkhand trip plan.');
   const { user, status: authStatus } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
