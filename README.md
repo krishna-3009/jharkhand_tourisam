@@ -19,7 +19,7 @@ jharkhand-main/
 │   ├── .env.example
 │   └── package.json
 ├── frontend/
-│   ├── api/                    # Vercel same-origin API proxy
+│   ├── vercel.json             # Vercel same-origin API proxy
 │   ├── src/
 │   ├── public/
 │   ├── .env.example
@@ -111,7 +111,7 @@ Build and publish the frontend from `frontend/`:
 npm run deploy
 ```
 
-For GitHub Pages, `VITE_API_BASE_URL` must be present at build time and point to Render. For Vercel, set the project Root Directory to `frontend` so it deploys `frontend/api/[...path].js`, then use that same-origin proxy: leave `VITE_API_BASE_URL` unset, set Vercel's server-side `API_ORIGIN` to the Render API origin (it defaults to the service name in `render.yaml`), and include the Vercel production origin in Render's `FRONTEND_ORIGINS`. The `*.vercel.app` hostname automatically uses the proxy; set `VITE_USE_SAME_ORIGIN_API=true` for a custom Vercel domain. Redeploy both services after changing environment variables.
+For GitHub Pages, `VITE_API_BASE_URL` must be present at build time and point to Render. For Vercel, set the project Root Directory to `frontend`; its `vercel.json` rewrite sends `/api/*` through the Vercel site to `https://jharkhand-tourisam.onrender.com`, avoiding third-party cookies. Leave `VITE_API_BASE_URL` unset for a `*.vercel.app` domain and include the exact Vercel production origin in Render's `FRONTEND_ORIGINS`. If your Render API uses a different hostname, update that rewrite destination. Set `VITE_USE_SAME_ORIGIN_API=true` for a custom Vercel domain. Redeploy both services after changing deployment files or environment variables.
 
 ## Cookie and browser notes
 
